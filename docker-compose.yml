@@ -1,22 +1,15 @@
 services:
-  ai_delver:
-    build: .
+  ai_delver_ai:
+    build:
+      context: .
     image: ai_delver
     container_name: ai_delver
     working_dir: /app
     environment:
-      - DISPLAY=${DISPLAY}
       - NVIDIA_VISIBLE_DEVICES=all
       - PYTHONUNBUFFERED=1
-      - XAUTHORITY=~/.Xauthority
     volumes:
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - .:/app
-    user: "${UID}:${GID}"
-    stdin_open: true
-    tty: true
-    entrypoint: python3
-    command: src/main.py
     deploy:
       resources:
         reservations:
@@ -24,6 +17,6 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-    tmpfs:
-      - /home/appuser/.fonts:uid=5678,gid=5678,mode=777
-      - /home/appuser/.config/matplotlib:uid=5678,gid=5678,mode=777
+    stdin_open: true
+    tty: true
+    user: "${UID}:${GID}"
