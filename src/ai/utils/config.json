@@ -1,0 +1,12 @@
+{
+  "num_iterations": 2000,
+  "initial_collect_steps": 100,
+  "collect_steps_per_iteration": 1,
+  "batch_size": 64,
+  "replay_buffer_capacity": 1000,
+  "learning_rate": 0.001,
+  "gamma": 0.99,
+  "epsilon_greedy": 0.1,
+  "log_interval": 200,
+  "checkpoint_interval": 500
+}

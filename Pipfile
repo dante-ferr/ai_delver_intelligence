@@ -1,0 +1,21 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[scripts]
+
+[packages]
+numpy = "*"
+tf-agents = "*"
+tensorflow = "==2.15.0"
+six = "*"
+
+[dev-packages]
+matplotlib = "*"
+
+[requires]
+python_version = "3.11.0"
+
+[pipenv]
+allow_prereleases = true
