@@ -10,12 +10,17 @@ numpy = "*"
 tf-agents = "*"
 tensorflow = "==2.15.0"
 six = "*"
+fastapi = ">=0.95.2"
+pydantic = ">=1.10.7"
+pydantic_core = "*"
+uvicorn = "*"
+exceptiongroup = "*"
 
 [dev-packages]
 matplotlib = "*"
 
 [requires]
-python_version = "3.11.0"
+python_version = "3.11"
 
 [pipenv]
 allow_prereleases = true

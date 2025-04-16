@@ -2,6 +2,9 @@ services:
   ai_delver_ai:
     build:
       context: .
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
     image: ai_delver
     container_name: ai_delver
     working_dir: /app
@@ -10,6 +13,7 @@ services:
       - PYTHONUNBUFFERED=1
     volumes:
       - .:/app
+    command: ["python3", "src/main.py"]
     deploy:
       resources:
         reservations:
@@ -19,4 +23,3 @@ services:
               capabilities: [gpu]
     stdin_open: true
     tty: true
-    user: "${UID}:${GID}"

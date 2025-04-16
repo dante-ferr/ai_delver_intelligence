@@ -1,3 +1,3 @@
-from .train import train
+from .trainer_controller import TrainerController
 
-__all__ = ["train"]
+__all__ = ["TrainerController"]
