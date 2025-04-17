@@ -1,6 +1,6 @@
 {
   "num_iterations": 2000,
-  "initial_collect_steps": 100,
+  "initial_collect_steps": 2,
   "collect_steps_per_iteration": 1,
   "batch_size": 64,
   "replay_buffer_capacity": 1000,

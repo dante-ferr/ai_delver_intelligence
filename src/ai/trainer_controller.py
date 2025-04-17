@@ -1,4 +1,3 @@
-import tensorflow as tf
 from tf_agents.environments import tf_py_environment
 from tf_agents.replay_buffers import tf_uniform_replay_buffer
 from tf_agents.policies import random_tf_policy
@@ -6,16 +5,13 @@ from tf_agents.trajectories import trajectory
 from ai.environments.ai_delver_environment import AIDelverEnvironment
 from ai.agents import PPOAgentFactory
 import json
-from .utils import get_specs_from
-
-with open("src/ai/utils/config.json", "r") as f:
-    config = json.load(f)
 
 
 class TrainerController:
     def __init__(self, config_path="src/ai/utils/config.json"):
         self._load_config(config_path)
         self._setup_env_and_agent()
+        print("Trainer controller initialized.")
 
     def _load_config(self, path):
         with open(path, "r") as f:
@@ -43,13 +39,19 @@ class TrainerController:
             max_length=self.replay_buffer_capacity,
         )
 
-        time_step_spec, observation_spec = get_specs_from(self.train_env)
         self.random_policy = random_tf_policy.RandomTFPolicy(
-            time_step_spec, observation_spec
+            self.train_env.time_step_spec(),
+            self.train_env.action_spec(),
+            # Ensure policy_info matches agent's expected structure
+            info_spec=self.agent.collect_policy.info_spec,
         )
 
+        print("Collecting initial replay buffer...")
         for _ in range(self.initial_collect_steps):
-            self.collect_step(self.random_policy)
+            done = False
+            while not done:
+                done = self.collect_step(self.random_policy)
+        print("Initial replay buffer collected.")
 
         dataset = self.replay_buffer.as_dataset(
             num_parallel_calls=3, sample_batch_size=self.batch_size, num_steps=2
@@ -65,16 +67,22 @@ class TrainerController:
         traj = trajectory.from_transition(time_step, action_step, next_time_step)
         self.replay_buffer.add_batch(traj)
 
+        return self.train_env.pyenv.envs[0].episode_ended
+
     def train(self):
+        print(f"Training for {self.num_iterations} iterations...")
         for iteration in range(self.num_iterations):
-            for _ in range(self.collect_steps_per_iteration):
-                self.collect_step(self.agent.collect_policy)
+            done = False
+            while not done:
+                done = self.collect_step(self.agent.collect_policy)
 
             experience, _ = next(self.iterator)
             loss_info = self.train_fn(experience)
 
-            if iteration % self.log_interval == 0:
-                print(f"Iteration {iteration}: Loss = {loss_info.loss.numpy()}")
+            print(f"Iteration {iteration}: Loss = {loss_info.loss.numpy()}")
+
+            # if iteration % self.log_interval == 0:
+            #     print(f"Iteration {iteration}: Loss = {loss_info.loss.numpy()}")
 
     def reset(self):
         self._setup_env_and_agent()

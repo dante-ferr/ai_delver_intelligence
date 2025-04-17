@@ -10,12 +10,14 @@ RUN groupadd -g $GID appgroup && \
     useradd -m -u $UID -g $GID appuser
 
 # System packages
-RUN apt-get update && apt-get install -y python3-pip && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && python -m pip install --upgrade pip && rm -rf /var/lib/apt/lists/*
 
 # Install pipenv and project dependencies
 WORKDIR /app
 COPY . /app
-RUN pip install --no-cache-dir pipenv && pipenv install --system --dev --deploy
+RUN pip install pipenv && \
+    pipenv install --system --dev --deploy && \
+    pip uninstall -y pipenv  # Remove after use to reduce image size
 
 # Switch to the created user
 USER appuser

@@ -1,18 +1,24 @@
 services:
   ai_delver_ai:
+    ports:
+      - "8001:8001"
     build:
       context: .
       args:
         UID: ${UID:-1000}
         GID: ${GID:-1000}
-    image: ai_delver
-    container_name: ai_delver
+    image: ai_delver_intelligence
+    container_name: ai_delver_intelligence
     working_dir: /app
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - PYTHONUNBUFFERED=1
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - NVIDIA_REQUIRE_CUDA=cuda>=11.8
     volumes:
       - .:/app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     command: ["python3", "src/main.py"]
     deploy:
       resources:
