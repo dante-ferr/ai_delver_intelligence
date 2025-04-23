@@ -15,6 +15,7 @@ with open("src/ai/utils/config.json", "r") as f:
 
 LEARNING_RATE = config["learning_rate"]
 GAMMA = config["gamma"]
+ENTROPY_REGULARIZATION = config["entropy_regularization"]
 
 
 class PPOAgentFactory:
@@ -24,7 +25,7 @@ class PPOAgentFactory:
         walls_preprocessing = keras.Sequential(
             [
                 keras.layers.Flatten(),
-                keras.layers.Dense(24, activation="relu", name="walls_preprocessing"),
+                keras.layers.Dense(64, activation="relu", name="walls_preprocessing"),
             ],
             name="walls_preprocessing",
         )
@@ -32,7 +33,7 @@ class PPOAgentFactory:
             [
                 keras.layers.BatchNormalization(input_shape=(2,)),
                 keras.layers.Dense(
-                    24, activation="relu", name="position_preprocessing"
+                    64, activation="relu", name="position_preprocessing"
                 ),
             ],
             name="position_preprocessing",
@@ -50,14 +51,14 @@ class PPOAgentFactory:
             train_env.action_spec(),
             preprocessing_layers=preprocessing_layers,
             preprocessing_combiner=preprocessing_combiner,
-            fc_layer_params=(24,),
+            fc_layer_params=(128, 64),
         )
 
         value_net = value_network.ValueNetwork(
             train_env.observation_spec(),
             preprocessing_layers=preprocessing_layers,
             preprocessing_combiner=preprocessing_combiner,
-            fc_layer_params=(24,),
+            fc_layer_params=(128, 64),
         )
 
         optimizer = keras.optimizers.Adam(learning_rate=learning_rate)
@@ -66,6 +67,7 @@ class PPOAgentFactory:
         self.agent = ppo_agent.PPOAgent(
             time_step_spec,
             action_spec,
+            entropy_regularization=ENTROPY_REGULARIZATION,
             actor_net=actor_net,
             value_net=value_net,
             optimizer=optimizer,

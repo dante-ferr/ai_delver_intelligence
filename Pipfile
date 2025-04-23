@@ -15,6 +15,7 @@ pydantic = ">=1.10.7"
 pydantic_core = "*"
 uvicorn = "*"
 exceptiongroup = "*"
+websockets = "*"
 
 [dev-packages]
 matplotlib = "*"

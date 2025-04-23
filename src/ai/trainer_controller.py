@@ -5,13 +5,13 @@ from ai.environments.ai_delver_environment import AIDelverEnvironment
 from ai.agents import PPOAgentFactory
 from .utils import ContinuityRandomPolicy
 import json
+import logging
 
 
 class TrainerController:
     def __init__(self, config_path="src/ai/utils/config.json"):
         self._load_config(config_path)
         self._setup_env_and_agent()
-        print("Trainer controller initialized.")
 
     def _load_config(self, path):
         with open(path, "r") as f:
@@ -64,15 +64,6 @@ class TrainerController:
 
         self.train_fn = self.agent.train  # swap with common.function if needed
 
-    def collect_step(self, policy):
-        time_step = self.train_env.current_time_step()
-        action_step = policy.action(time_step)
-        next_time_step = self.train_env.step(action_step.action)
-        traj = trajectory.from_transition(time_step, action_step, next_time_step)
-        self.replay_buffer.add_batch(traj)
-
-        return self.train_env.pyenv.envs[0].episode_ended
-
     def train(self):
         print(f"Training for {self.num_iterations} iterations...")
         for iteration in range(self.num_iterations):
@@ -86,7 +77,16 @@ class TrainerController:
             print(f"Iteration {iteration}: Loss = {loss_info.loss.numpy()}")
 
             # if iteration % self.log_interval == 0:
-            #     print(f"Iteration {iteration}: Loss = {loss_info.loss.numpy()}")
+            #     logging.info(f"Iteration {iteration}: Loss = {loss_info.loss.numpy()}")
+
+    def collect_step(self, policy):
+        time_step = self.train_env.current_time_step()
+        action_step = policy.action(time_step)
+        next_time_step = self.train_env.step(action_step.action)
+        traj = trajectory.from_transition(time_step, action_step, next_time_step)
+        self.replay_buffer.add_batch(traj)
+
+        return self.train_env.pyenv.envs[0].episode_ended
 
     def reset(self):
         self._setup_env_and_agent()

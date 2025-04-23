@@ -5,9 +5,11 @@ import numpy as np
 from typing import cast, Any
 import tensorflow as tf
 from tf_agents.typing.types import NestedArraySpec
-import requests
+from queue import Queue, Empty
+from ._simulation_socket_worker import SimulationSocketWorker
+import logging
 
-SIMULATION_URL = "http://host.docker.internal:8000/simulation/"
+SIMULATION_WS_URL = "ws://host.docker.internal:8000/ws/simulation"
 
 
 class AIDelverEnvironment(PyEnvironment):
@@ -16,8 +18,27 @@ class AIDelverEnvironment(PyEnvironment):
             "move": False,
             "move_angle": 0,
         }
+        self.episodes = 0
 
+        self._init_socket_worker()
         self.walls_grid = self._get_walls_grid()
+
+        self._init_specs()
+
+        self._episode_ended = False
+
+    def _init_socket_worker(self):
+        self._action_queue = Queue()
+        self._result_queue = Queue()
+
+        self.worker = SimulationSocketWorker(
+            SIMULATION_WS_URL,
+            self._action_queue,
+            self._result_queue,
+        )
+        self.worker.start()
+
+    def _init_specs(self):
         self._action_spec = {
             "move": array_spec.BoundedArraySpec(
                 shape=(), dtype=np.float32, minimum=0.0, maximum=1.0, name="move"
@@ -44,21 +65,21 @@ class AIDelverEnvironment(PyEnvironment):
             ),
         }
 
-        self._episode_ended = False
-
     def _get_walls_grid(self):
-        grid_data = requests.get(SIMULATION_URL + "walls").json()
-        return np.array(grid_data)
-
-    # tf_agents.typing.types.NestedArraySpec is a union that includes tf_agents.types.ArraySpec. So I suppose it's safe to cast it to bounded arrays, because they extend ArraySpec.
-    def action_spec(self):
-        return cast(NestedArraySpec, self._action_spec)
-
-    def observation_spec(self):
-        return cast(NestedArraySpec, self._observation_spec)
+        self._action_queue.put({"type": "get_walls"})
+        try:
+            result = self._result_queue.get(timeout=1.0)
+        except Empty:
+            raise RuntimeError("Timeout getting walls data")
+        return np.array(result["walls"])
 
     def _reset(self):
-        requests.post(SIMULATION_URL + "start_new_simulation")
+        self.episodes += 1
+        self._action_queue.put({"type": "start_new_simulation"})
+        try:
+            self._result_queue.get(timeout=1.0)  # Just wait for ack
+        except Empty:
+            raise RuntimeError("Timeout starting new simulation")
         self._episode_ended = False
         return ts.restart(self._observation)
 
@@ -71,20 +92,19 @@ class AIDelverEnvironment(PyEnvironment):
             "move_angle": float(action["move_angle"]),
         }
         print(
-            f"Move: {action_dict['move']}, Move angle: {action_dict['move_angle']}, Delver pos: {self._observation['delver_position']}"
+            f"Episode: {self.episodes}, Move: {action_dict['move']}, Move angle: {action_dict['move_angle']}, Delver pos: {self._observation['delver_position']}"
         )
 
+        self._action_queue.put({"type": "step", "payload": action_dict})
+
         try:
-            response = requests.post(
-                SIMULATION_URL + "step",
-                json=action_dict,
-                timeout=1.0,
-            )
-            response.raise_for_status()
-            reward, self._episode_ended, elapsed_time = response.json()
-        except Exception as e:
-            print(f"Error in step: {str(e)}")
-            raise
+            result = self._result_queue.get(timeout=1.0)
+        except Empty:
+            raise RuntimeError("Timed out waiting for simulation response")
+
+        reward = result["reward"]
+        self._episode_ended = result["ended"]
+        elapsed_time = result["elapsed_time"]
 
         return self._create_time_step(reward)
 
@@ -97,11 +117,22 @@ class AIDelverEnvironment(PyEnvironment):
             return ts.termination(self._observation, reward_tensor)
         return ts.transition(self._observation, reward_tensor, discount_tensor)
 
+    # tf_agents.typing.types.NestedArraySpec is a union that includes tf_agents.types.ArraySpec. So I suppose it's safe to cast it to bounded arrays, because they extend ArraySpec.
+    def action_spec(self):
+        return cast(NestedArraySpec, self._action_spec)
+
+    def observation_spec(self):
+        return cast(NestedArraySpec, self._observation_spec)
+
     @property
     def _observation(self):
         walls_layer = self.walls_grid.astype(np.float32)
-        delver_x, delver_y = requests.get(SIMULATION_URL + "delver_position").json()
-        goal_x, goal_y = requests.get(SIMULATION_URL + "goal_position").json()
+
+        self._action_queue.put({"type": "get_delver_position"})
+        delver_x, delver_y = self._result_queue.get(timeout=1.0)["position"]
+
+        self._action_queue.put({"type": "get_goal_position"})
+        goal_x, goal_y = self._result_queue.get(timeout=1.0)["position"]
 
         observation = {
             "walls": tf.convert_to_tensor(walls_layer, dtype=tf.int32),
