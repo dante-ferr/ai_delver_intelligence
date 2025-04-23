@@ -2,7 +2,7 @@ from tf_agents.environments import PyEnvironment
 from tf_agents.specs import array_spec
 from tf_agents.trajectories import time_step as ts
 import numpy as np
-from typing import cast
+from typing import cast, Any
 import tensorflow as tf
 from tf_agents.typing.types import NestedArraySpec
 import requests
@@ -12,14 +12,22 @@ SIMULATION_URL = "http://host.docker.internal:8000/simulation/"
 
 class AIDelverEnvironment(PyEnvironment):
     def __init__(self):
+        self.last_action: dict[str, Any] = {
+            "move": False,
+            "move_angle": 0,
+        }
+
         self.walls_grid = self._get_walls_grid()
         self._action_spec = {
             "move": array_spec.BoundedArraySpec(
+                shape=(), dtype=np.float32, minimum=0.0, maximum=1.0, name="move"
+            ),
+            "move_angle": array_spec.BoundedArraySpec(
                 shape=(),
-                dtype=np.int32,
+                dtype=np.float32,
                 minimum=0,
-                maximum=3,
-                name="move",
+                maximum=360.0,
+                name="move_angle",
             ),
         }
 
@@ -33,9 +41,6 @@ class AIDelverEnvironment(PyEnvironment):
             ),
             "goal_position": array_spec.ArraySpec(
                 shape=(2,), dtype=np.float32, name="goal_position"
-            ),
-            "delver_angle": array_spec.ArraySpec(
-                shape=(), dtype=np.float32, name="delver_angle"
             ),
         }
 
@@ -61,9 +66,13 @@ class AIDelverEnvironment(PyEnvironment):
         if self._episode_ended:
             return self.reset()
 
-        move = int(action["move"])
-        action_dict = {"move": move}
-        print(self._observation["delver_angle"])
+        action_dict = {
+            "move": False if round(float(action["move"])) == 0 else True,
+            "move_angle": float(action["move_angle"]),
+        }
+        print(
+            f"Move: {action_dict['move']}, Move angle: {action_dict['move_angle']}, Delver pos: {self._observation['delver_position']}"
+        )
 
         try:
             response = requests.post(
@@ -93,19 +102,11 @@ class AIDelverEnvironment(PyEnvironment):
         walls_layer = self.walls_grid.astype(np.float32)
         delver_x, delver_y = requests.get(SIMULATION_URL + "delver_position").json()
         goal_x, goal_y = requests.get(SIMULATION_URL + "goal_position").json()
-        delver_angle = requests.get(SIMULATION_URL + "delver_angle").json()
-        # print(f"Delver position: {delver_x}, {delver_y}")
-        # print(f"Goal position: {goal_x}, {goal_y}")
 
-        if isinstance(delver_angle, list):
-            delver_angle = delver_angle[0]
-
-        # IMPORTANT: the following tensors are flattened for now, but in the future it might be a good idea to batch them
         observation = {
             "walls": tf.convert_to_tensor(walls_layer, dtype=tf.int32),
             "delver_position": np.array([delver_x, delver_y], dtype=np.float32),
             "goal_position": np.array([goal_x, goal_y], dtype=np.float32),
-            "delver_angle": np.array(delver_angle, dtype=np.float32),
         }
         return observation
 

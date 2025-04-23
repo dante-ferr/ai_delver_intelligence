@@ -37,38 +37,25 @@ class PPOAgentFactory:
             ],
             name="position_preprocessing",
         )
-        angle_preprocessing = keras.Sequential(
-            [
-                keras.layers.Reshape((1,), input_shape=()),
-                keras.layers.BatchNormalization(),
-                keras.layers.Dense(24, activation="relu", name="angle_preprocessing"),
-            ],
-            name="angle_preprocessing",
-        )
+        preprocessing_layers = {
+            "walls": walls_preprocessing,
+            "delver_position": position_preprocessing,
+            "goal_position": position_preprocessing,
+        }
 
         preprocessing_combiner = keras.layers.Concatenate()
 
         actor_net = actor_distribution_network.ActorDistributionNetwork(
             train_env.observation_spec(),
             train_env.action_spec(),
-            preprocessing_layers={
-                "walls": walls_preprocessing,
-                "delver_position": position_preprocessing,
-                "goal_position": position_preprocessing,
-                "delver_angle": angle_preprocessing,
-            },
+            preprocessing_layers=preprocessing_layers,
             preprocessing_combiner=preprocessing_combiner,
             fc_layer_params=(24,),
         )
 
         value_net = value_network.ValueNetwork(
             train_env.observation_spec(),
-            preprocessing_layers={
-                "walls": walls_preprocessing,
-                "delver_position": position_preprocessing,
-                "goal_position": position_preprocessing,
-                "delver_angle": angle_preprocessing,
-            },
+            preprocessing_layers=preprocessing_layers,
             preprocessing_combiner=preprocessing_combiner,
             fc_layer_params=(24,),
         )
