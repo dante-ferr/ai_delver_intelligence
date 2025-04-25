@@ -26,7 +26,11 @@ class ContinuityRandomPolicy(tf_policy.TFPolicy):
                     "loc": tensor_spec.TensorSpec(shape=(), dtype=tf.float32),
                     "scale": tensor_spec.TensorSpec(shape=(), dtype=tf.float32),
                 },
-                "move_angle": {
+                "move_angle_sin": {
+                    "loc": tensor_spec.TensorSpec(shape=(), dtype=tf.float32),
+                    "scale": tensor_spec.TensorSpec(shape=(), dtype=tf.float32),
+                },
+                "move_angle_cos": {
                     "loc": tensor_spec.TensorSpec(shape=(), dtype=tf.float32),
                     "scale": tensor_spec.TensorSpec(shape=(), dtype=tf.float32),
                 },
@@ -52,26 +56,42 @@ class ContinuityRandomPolicy(tf_policy.TFPolicy):
 
         # Generate move_angle action
         move_angle_probs = np.array([0.2, 0.8])
-        move_angle_value = [
-            random.uniform(0, 360),
-            float(self.env.last_action["move_angle"]),
+        move_angle_sin, move_angle_cos = [
+            (random.uniform(-1.0, 1.0), random.uniform(-1.0, 1.0)),
+            (
+                self.env.last_action["move_angle_sin"],
+                self.env.last_action["move_angle_cos"],
+            ),
         ][self._get_action_index(move_angle_probs)]
 
-        move_angle_loc = tf.convert_to_tensor([move_angle_value], dtype=tf.float32)
-        move_angle_scale = tf.convert_to_tensor([10.0], dtype=tf.float32)
+        move_angle_sin_loc = tf.convert_to_tensor([move_angle_sin], dtype=tf.float32)
+        move_angle_cos_loc = tf.convert_to_tensor([move_angle_cos], dtype=tf.float32)
+        move_angle_scale = tf.convert_to_tensor([1.0], dtype=tf.float32)
 
         self.env.last_action = {
             "move": bool(move_value > 0.5),
-            "move_angle": move_angle_value,
+            "move_angle_sin": move_angle_sin,
+            "move_angle_cos": move_angle_cos,
         }
 
         return policy_step.PolicyStep(
-            action={"move": move_loc, "move_angle": move_angle_loc},
+            action={
+                "move": move_loc,
+                "move_angle_sin": move_angle_sin_loc,
+                "move_angle_cos": move_angle_cos_loc,
+            },
             state=(),
             info={
                 "dist_params": {
                     "move": {"loc": move_loc, "scale": move_scale},
-                    "move_angle": {"loc": move_angle_loc, "scale": move_angle_scale},
+                    "move_angle_sin": {
+                        "loc": move_angle_sin_loc,
+                        "scale": move_angle_scale,
+                    },
+                    "move_angle_cos": {
+                        "loc": move_angle_cos_loc,
+                        "scale": move_angle_scale,
+                    },
                 }
             },
         )

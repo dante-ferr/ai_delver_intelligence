@@ -1,5 +1,6 @@
 import uvicorn
 from api import app as api_app
+import tensorflow as tf
 
 
 def run_api():

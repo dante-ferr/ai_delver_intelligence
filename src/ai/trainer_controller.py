@@ -68,6 +68,7 @@ class TrainerController:
         print(f"Training for {self.num_iterations} iterations...")
         for iteration in range(self.num_iterations):
             done = False
+
             while not done:
                 done = self.collect_step(self.agent.collect_policy)
 

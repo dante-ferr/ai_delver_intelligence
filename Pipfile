@@ -7,15 +7,17 @@ name = "pypi"
 
 [packages]
 numpy = "*"
-tf-agents = "*"
 tensorflow = "==2.15.0"
 six = "*"
-fastapi = ">=0.95.2"
-pydantic = ">=1.10.7"
+fastapi = "==0.95.2"
+pydantic = "==1.10.14"
+typing-extensions = "==4.5.0"
 pydantic_core = "*"
 uvicorn = "*"
 exceptiongroup = "*"
 websockets = "*"
+tf-agents = "==0.19.0"
+keras = "*"
 
 [dev-packages]
 matplotlib = "*"

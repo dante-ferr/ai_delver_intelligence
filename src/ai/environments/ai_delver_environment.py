@@ -8,6 +8,7 @@ from tf_agents.typing.types import NestedArraySpec
 from queue import Queue, Empty
 from ._simulation_socket_worker import SimulationSocketWorker
 import logging
+import math
 
 SIMULATION_WS_URL = "ws://host.docker.internal:8000/ws/simulation"
 
@@ -16,7 +17,8 @@ class AIDelverEnvironment(PyEnvironment):
     def __init__(self):
         self.last_action: dict[str, Any] = {
             "move": False,
-            "move_angle": 0,
+            "move_angle_sin": 0,
+            "move_angle_cos": 0,
         }
         self.episodes = 0
 
@@ -43,12 +45,11 @@ class AIDelverEnvironment(PyEnvironment):
             "move": array_spec.BoundedArraySpec(
                 shape=(), dtype=np.float32, minimum=0.0, maximum=1.0, name="move"
             ),
-            "move_angle": array_spec.BoundedArraySpec(
-                shape=(),
-                dtype=np.float32,
-                minimum=0,
-                maximum=360.0,
-                name="move_angle",
+            "move_angle_cos": array_spec.BoundedArraySpec(
+                (), dtype=np.float32, minimum=-1.0, maximum=1.0, name="move_angle_cos"
+            ),
+            "move_angle_sin": array_spec.BoundedArraySpec(
+                (), dtype=np.float32, minimum=-1.0, maximum=1.0, name="move_angle_sin"
             ),
         }
 
@@ -87,14 +88,16 @@ class AIDelverEnvironment(PyEnvironment):
         if self._episode_ended:
             return self.reset()
 
+        move_angle_rad = math.atan2(action["move_angle_sin"], action["move_angle_cos"])
         action_dict = {
             "move": False if round(float(action["move"])) == 0 else True,
-            "move_angle": float(action["move_angle"]),
+            "move_angle": float(math.degrees(move_angle_rad)),
         }
         print(
             f"Episode: {self.episodes}, Move: {action_dict['move']}, Move angle: {action_dict['move_angle']}, Delver pos: {self._observation['delver_position']}"
         )
 
+        # Send delver actions to the simulation
         self._action_queue.put({"type": "step", "payload": action_dict})
 
         try:
