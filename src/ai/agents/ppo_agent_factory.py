@@ -2,11 +2,9 @@ from tf_agents.agents.ppo import ppo_agent
 from tf_agents.networks import (
     actor_distribution_network,
     value_network,
-    normal_projection_network,
 )
 import tensorflow as tf
-import keras
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 from ..utils import get_specs_from
 import json
 
@@ -35,14 +33,14 @@ class PPOAgentFactory:
                 tf.keras.layers.Reshape((*walls_shape, 1)),
                 tf.keras.layers.Conv2D(16, 3, activation="relu"),
                 tf.keras.layers.Flatten(),
-                tf.keras.layers.Dense(64, activation="relu"),
+                tf.keras.layers.Dense(32, activation="relu"),
             ]
         )
         position_preprocessing = tf.keras.Sequential(
             [
                 tf.keras.layers.BatchNormalization(input_shape=(2,)),
                 tf.keras.layers.Dense(
-                    64, activation="relu", name="position_preprocessing"
+                    32, activation="relu", name="position_preprocessing"
                 ),
             ],
             name="position_preprocessing",
@@ -62,14 +60,14 @@ class PPOAgentFactory:
             action_spec,
             preprocessing_layers=preprocessing_layers,
             preprocessing_combiner=preprocessing_combiner,
-            fc_layer_params=(128, 64),
+            fc_layer_params=(32, 16),
         )
 
         value_net = value_network.ValueNetwork(
             train_env.observation_spec(),
             preprocessing_layers=preprocessing_layers,
             preprocessing_combiner=preprocessing_combiner,
-            fc_layer_params=(128, 64),
+            fc_layer_params=(32, 16),
         )
 
         optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)

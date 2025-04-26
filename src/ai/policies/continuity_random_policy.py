@@ -6,7 +6,7 @@ import numpy as np
 from tf_agents.specs import tensor_spec
 import random
 import json
-from typing import Any
+from ai.utils import create_action_policy_step
 
 with open("src/ai/utils/config.json", "r") as f:
     config = json.load(f)
@@ -51,9 +51,6 @@ class ContinuityRandomPolicy(tf_policy.TFPolicy):
             self._get_action_index(move_probs)
         ]
 
-        move_loc = tf.convert_to_tensor([move_value], dtype=tf.float32)
-        move_scale = tf.convert_to_tensor([0.1], dtype=tf.float32)
-
         # Generate move_angle action
         move_angle_probs = np.array([0.2, 0.8])
         move_angle_sin, move_angle_cos = [
@@ -64,36 +61,18 @@ class ContinuityRandomPolicy(tf_policy.TFPolicy):
             ),
         ][self._get_action_index(move_angle_probs)]
 
-        move_angle_sin_loc = tf.convert_to_tensor([move_angle_sin], dtype=tf.float32)
-        move_angle_cos_loc = tf.convert_to_tensor([move_angle_cos], dtype=tf.float32)
-        move_angle_scale = tf.convert_to_tensor([1.0], dtype=tf.float32)
-
         self.env.last_action = {
             "move": bool(move_value > 0.5),
             "move_angle_sin": move_angle_sin,
             "move_angle_cos": move_angle_cos,
         }
 
-        return policy_step.PolicyStep(
-            action={
-                "move": move_loc,
-                "move_angle_sin": move_angle_sin_loc,
-                "move_angle_cos": move_angle_cos_loc,
-            },
-            state=(),
-            info={
-                "dist_params": {
-                    "move": {"loc": move_loc, "scale": move_scale},
-                    "move_angle_sin": {
-                        "loc": move_angle_sin_loc,
-                        "scale": move_angle_scale,
-                    },
-                    "move_angle_cos": {
-                        "loc": move_angle_cos_loc,
-                        "scale": move_angle_scale,
-                    },
-                }
-            },
+        return create_action_policy_step(
+            {
+                "move": [move_value],
+                "move_angle_sin": [move_angle_sin],
+                "move_angle_cos": [move_angle_cos],
+            }
         )
 
     def _get_action_index(self, probs: list[float]):
