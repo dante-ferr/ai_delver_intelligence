@@ -7,6 +7,7 @@ import tensorflow as tf
 from typing import TYPE_CHECKING
 from ..utils import get_specs_from
 import json
+import keras
 
 if TYPE_CHECKING:
     from tf_agents.environments.tf_py_environment import TFPyEnvironment
@@ -27,19 +28,19 @@ class PPOAgentFactory:
         walls_spec = train_env.observation_spec()["walls"]
         walls_shape = walls_spec.shape
 
-        walls_preprocessing = tf.keras.Sequential(
+        walls_preprocessing = keras.Sequential(
             [
-                tf.keras.layers.Rescaling(1.0),
-                tf.keras.layers.Reshape((*walls_shape, 1)),
-                tf.keras.layers.Conv2D(16, 3, activation="relu"),
-                tf.keras.layers.Flatten(),
-                tf.keras.layers.Dense(32, activation="relu"),
+                keras.layers.Rescaling(1.0),
+                keras.layers.Reshape((*walls_shape, 1)),
+                keras.layers.Conv2D(16, 3, activation="relu"),
+                keras.layers.Flatten(),
+                keras.layers.Dense(32, activation="relu"),
             ]
         )
-        position_preprocessing = tf.keras.Sequential(
+        position_preprocessing = keras.Sequential(
             [
-                tf.keras.layers.BatchNormalization(input_shape=(2,)),
-                tf.keras.layers.Dense(
+                keras.layers.BatchNormalization(input_shape=(2,)),
+                keras.layers.Dense(
                     32, activation="relu", name="position_preprocessing"
                 ),
             ],
@@ -51,27 +52,25 @@ class PPOAgentFactory:
             "goal_position": position_preprocessing,
         }
 
-        preprocessing_combiner = tf.keras.layers.Concatenate()
+        preprocessing_combiner = keras.layers.Concatenate()
 
-        time_step_spec, action_spec = get_specs_from(train_env)
+        time_step_spec, action_spec, observation_spec = get_specs_from(train_env)
 
         actor_net = actor_distribution_network.ActorDistributionNetwork(
-            train_env.observation_spec(),
+            observation_spec,
             action_spec,
             preprocessing_layers=preprocessing_layers,
             preprocessing_combiner=preprocessing_combiner,
             fc_layer_params=(32, 16),
         )
-
         value_net = value_network.ValueNetwork(
-            train_env.observation_spec(),
+            observation_spec,
             preprocessing_layers=preprocessing_layers,
             preprocessing_combiner=preprocessing_combiner,
             fc_layer_params=(32, 16),
         )
 
-        optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
-
+        optimizer = keras.optimizers.Adam(learning_rate=learning_rate)
         self.agent = ppo_agent.PPOAgent(
             time_step_spec,
             action_spec,
@@ -83,9 +82,8 @@ class PPOAgentFactory:
             discount_factor=gamma,
             train_step_counter=tf.Variable(0),
             entropy_regularization=ENTROPY_REGULARIZATION,
-            # initial_adaptive_kl_beta=0.3,  # Add this line
-            # use_gae=True,  # Enable Generalized Advantage Estimation
-            # num_epochs=10,  # More policy updates per batch
+            use_gae=True,
+            use_td_lambda_return=True,
         )
 
         self.agent.initialize()

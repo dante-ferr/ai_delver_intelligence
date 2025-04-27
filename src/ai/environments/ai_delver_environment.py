@@ -3,22 +3,30 @@ from tf_agents.specs import array_spec
 from tf_agents.trajectories import time_step as ts
 import numpy as np
 from typing import cast, Any
-import tensorflow as tf
 from tf_agents.typing.types import NestedArraySpec
 from queue import Queue, Empty
 from ._simulation_socket_worker import SimulationSocketWorker
 import math
 from functools import cached_property
+from typing import TYPE_CHECKING
+from multiprocessing import Manager
+
+if TYPE_CHECKING:
+    from . import DelverObservation
 
 SIMULATION_WS_URL = "ws://host.docker.internal:8000/ws/simulation"
+
+manager = Manager()
+frame_counter = manager.Value("i", 0)
+frame_lock = manager.Lock()
 
 
 class AIDelverEnvironment(PyEnvironment):
     def __init__(self):
         self.last_action: dict[str, Any] = {
-            "move": False,
-            "move_angle_sin": 0,
-            "move_angle_cos": 0,
+            "move": 0.0,
+            "move_angle_sin": 0.0,
+            "move_angle_cos": 0.0,
         }
         self.episodes = 0
 
@@ -76,9 +84,18 @@ class AIDelverEnvironment(PyEnvironment):
         self.episode_ended = False
         return ts.restart(self.observation)
 
+    def _count_and_print_frame(self):
+        with frame_lock:
+            frame_counter.value += 1
+            current_frame = frame_counter.value
+
+        print(f"Global frame count: {current_frame}")
+
     def _step(self, action):
+        # self._count_and_print_frame()
+
         if self.episode_ended:
-            return self.reset()
+            return self._reset()
 
         action_dict = self._get_dict_of_action(action)
         print(
@@ -108,13 +125,10 @@ class AIDelverEnvironment(PyEnvironment):
         }
 
     def _create_time_step(self, reward):
-        reward_tensor = tf.convert_to_tensor(reward, dtype=tf.float32)
-        discount_tensor = tf.convert_to_tensor(1.0, dtype=tf.float32)
-
         if self.episode_ended:
             print(f"Episode {self.episodes} ended!")
-            return ts.termination(self.observation, reward_tensor)
-        return ts.transition(self.observation, reward_tensor, discount_tensor)
+            return ts.termination(self.observation, reward)
+        return ts.transition(self.observation, reward, 1.0)
 
     # tf_agents.typing.types.NestedArraySpec is a union that includes tf_agents.types.ArraySpec. So I suppose it's safe to cast it to bounded arrays, because they extend ArraySpec.
     def action_spec(self):
@@ -130,8 +144,8 @@ class AIDelverEnvironment(PyEnvironment):
     def observation(self):
         walls_layer = self.walls_grid.astype(np.float32)
 
-        observation = {
-            "walls": tf.convert_to_tensor(walls_layer, dtype=tf.int32),
+        observation: "DelverObservation" = {
+            "walls": np.array(walls_layer, dtype=np.float32),
             "delver_position": np.array([*self.delver_position], dtype=np.float32),
             "goal_position": np.array([*self.goal_position], dtype=np.float32),
         }
