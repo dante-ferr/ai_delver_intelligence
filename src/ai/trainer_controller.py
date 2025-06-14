@@ -89,7 +89,6 @@ class TrainerController:
             # if iteration % LOG_INTERVAL == 0:
             #     logging.info(f"Iteration {iteration}: Loss = {loss_info.loss.numpy()}")
 
-    # IMPORTANT: should the collect step be called separatly for each env?
     def collect_step(self, policy):
         time_step = cast("TimeStep", self.train_env.current_time_step())
         action_step = policy.action(time_step)
